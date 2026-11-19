@@ -98,9 +98,15 @@ function App() {
     setLoading(false);
     if (err || !data) { setError(err?.message || 'Nie udało się zapisać listu.'); return; }
     if (!isEdit) {
-      const tokens = getTokens(); tokens[formName.trim().toLocaleLowerCase('pl')] = token;
-      localStorage.setItem(EDIT_KEY, JSON.stringify(tokens));
-      setNotice('List zapisany! Zachowaj ten telefon/przeglądarkę — zapisaliśmy na nim możliwość edycji.');
+  const tokens = getTokens();
+  tokens[formName.trim().toLocaleLowerCase('pl')] = token;
+  localStorage.setItem(EDIT_KEY, JSON.stringify(tokens));
+
+  localStorage.setItem(ASSIGN_KEY, data.name);
+  setAssigned(data.name);
+
+  setNotice('List zapisany! Zachowaj ten telefon/przeglądarkę — zapisaliśmy na nim możliwość edycji.');
+}
     } else setNotice('Zmiany zapisane.');
     setLetter(data);
     setPage('letter');
