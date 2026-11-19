@@ -10,6 +10,7 @@ import './style.css';
 
 const url = import.meta.env.VITE_SUPABASE_URL;
 const anon = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
 const supabase = url && anon && !url.includes('TWOJ-PROJEKT')
   ? createClient(url, anon)
   : null;
@@ -20,10 +21,12 @@ const EDIT_KEY = 'wigilia_edit_tokens';
 
 function deviceId() {
   let id = localStorage.getItem(DEVICE_KEY);
+
   if (!id) {
     id = crypto.randomUUID();
     localStorage.setItem(DEVICE_KEY, id);
   }
+
   return id;
 }
 
@@ -33,6 +36,32 @@ function getTokens() {
   } catch {
     return {};
   }
+}
+
+// Zawsze zamieniamy linki na zwykłą tablicę.
+function normalizeLinks(value) {
+  if (Array.isArray(value)) return value;
+
+  if (typeof value === 'string') {
+    try {
+      const parsed = JSON.parse(value);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+
+  return [];
+}
+
+// Normalizacja danych pobranych z Supabase.
+function normalizeLetter(data) {
+  if (!data) return null;
+
+  return {
+    ...data,
+    links: normalizeLinks(data.links)
+  };
 }
 
 function App() {
@@ -54,7 +83,9 @@ function App() {
   const configured = !!supabase;
 
   useEffect(() => {
-    if (assigned) loadAssigned(assigned);
+    if (assigned) {
+      loadAssigned(assigned);
+    }
   }, []);
 
   async function loadAssigned(who) {
@@ -78,7 +109,8 @@ function App() {
       return;
     }
 
-    setLetter(data);
+    const safeData = normalizeLetter(data);
+    setLetter(safeData);
     setPage('letter');
   }
 
@@ -88,29 +120,47 @@ function App() {
     const clean = name.trim();
     if (!clean) return;
 
-    if (assigned && assigned.toLocaleLowerCase('pl') !== clean.toLocaleLowerCase('pl')) {
-      setError(`To urządzenie ma już przypisany list: ${assigned}. Możesz otworzyć tylko ten list.`);
+    if (!supabase) {
+      setError('Brak połączenia z bazą danych.');
+      return;
+    }
+
+    if (
+      assigned &&
+      assigned.toLocaleLowerCase('pl') !== clean.toLocaleLowerCase('pl')
+    ) {
+      setError(
+        `To urządzenie ma już przypisany list: ${assigned}. Możesz otworzyć tylko ten list.`
+      );
       return;
     }
 
     setLoading(true);
     setError('');
 
-    const { data, error: err } = await supabase.rpc('claim_and_get_letter', {
-      p_name: clean,
-      p_device_id: deviceId()
-    });
+    const { data, error: err } = await supabase.rpc(
+      'claim_and_get_letter',
+      {
+        p_name: clean,
+        p_device_id: deviceId()
+      }
+    );
 
     setLoading(false);
 
     if (err || !data) {
-      setError(err?.message || 'Nie znaleziono listu albo jest już przypisany do innej osoby.');
+      setError(
+        err?.message ||
+        'Nie znaleziono listu albo jest już przypisany do innej osoby.'
+      );
       return;
     }
 
-    localStorage.setItem(ASSIGN_KEY, data.name);
-    setAssigned(data.name);
-    setLetter(data);
+    const safeData = normalizeLetter(data);
+
+    localStorage.setItem(ASSIGN_KEY, safeData.name);
+    setAssigned(safeData.name);
+    setLetter(safeData);
     setPage('letter');
   }
 
@@ -120,17 +170,27 @@ function App() {
     setLinks(['']);
     setIsEdit(false);
     setEditToken('');
+    setError('');
+    setNotice('');
     setPage('editor');
   }
 
   async function saveLetter(e) {
     e.preventDefault();
 
+    if (!supabase) {
+      setError('Brak połączenia z bazą danych.');
+      return;
+    }
+
     setLoading(true);
     setError('');
     setNotice('');
 
-    const cleanLinks = links.map(x => x.trim()).filter(Boolean);
+    const cleanLinks = links
+      .map(x => x.trim())
+      .filter(Boolean);
+
     const token = isEdit
       ? editToken
       : crypto.randomUUID() + crypto.randomUUID();
@@ -145,7 +205,7 @@ function App() {
       : await supabase.rpc('create_my_letter', {
           p_name: formName.trim(),
           p_content: content,
-          p_links: JSON.stringify(cleanLinks),
+          p_links: cleanLinks,
           p_edit_token: token,
           p_device_id: deviceId()
         });
@@ -157,34 +217,47 @@ function App() {
       return;
     }
 
+    const safeData = normalizeLetter(data);
+
     if (!isEdit) {
       const tokens = getTokens();
+
       tokens[formName.trim().toLocaleLowerCase('pl')] = token;
+
       localStorage.setItem(EDIT_KEY, JSON.stringify(tokens));
+      localStorage.setItem(ASSIGN_KEY, safeData.name);
 
-      localStorage.setItem(ASSIGN_KEY, data.name);
-      setAssigned(data.name);
+      setAssigned(safeData.name);
 
-      setNotice('List zapisany! Zachowaj ten telefon/przeglądarkę — zapisaliśmy na nim możliwość edycji.');
+      setNotice(
+        'List zapisany! Zachowaj ten telefon/przeglądarkę — zapisaliśmy na nim możliwość edycji.'
+      );
     } else {
       setNotice('Zmiany zapisane.');
     }
 
-    setLetter(data);
+    setLetter(safeData);
     setPage('letter');
   }
 
   function editOwnLetter() {
-    const token = getTokens()[letter.name.toLocaleLowerCase('pl')];
+    const token = getTokens()[
+      letter.name.toLocaleLowerCase('pl')
+    ];
 
     if (!token) {
-      setError('Nie znaleziono kodu edycji na tym urządzeniu. List może edytować tylko autor z urządzenia, na którym go utworzył.');
+      setError(
+        'Nie znaleziono kodu edycji na tym urządzeniu. List może edytować tylko autor z urządzenia, na którym go utworzył.'
+      );
       return;
     }
 
     setFormName(letter.name);
     setContent(letter.content || '');
-    setLinks(letter.links?.length ? letter.links : ['']);
+
+    const savedLinks = normalizeLinks(letter.links);
+
+    setLinks(savedLinks.length ? savedLinks : ['']);
     setEditToken(token);
     setIsEdit(true);
     setPage('editor');
@@ -198,16 +271,27 @@ function App() {
           <div className="brandIcon"><Gift /></div>
           <span>Wigilia <b>2026</b></span>
         </header>
+
         <section className="hero">
-          <div className="eyebrow"><Snowflake size={15} /> ŚWIĄTECZNA EDYCJA</div>
+          <div className="eyebrow">
+            <Snowflake size={15} /> ŚWIĄTECZNA EDYCJA
+          </div>
           <h1>Listy do<br /><em>Mikołaja</em></h1>
           <p>Jedno miejsce na wszystkie świąteczne marzenia.</p>
         </section>
+
         <section className="panel">
           <h2>Strona wymaga podłączenia bazy danych</h2>
-          <p>Projekt jest gotowy, ale przed publikacją trzeba skonfigurować bezpłatny projekt Supabase i wkleić jego dane do pliku <code>.env</code>.</p>
-          <p>Instrukcja znajduje się w pliku <b>INSTRUKCJA.md</b> w pobranym pakiecie.</p>
+          <p>
+            Projekt jest gotowy, ale przed publikacją trzeba skonfigurować
+            bezpłatny projekt Supabase i wkleić jego dane do pliku .env.
+          </p>
+          <p>
+            Instrukcja znajduje się w pliku <b>INSTRUKCJA.md</b>
+            w pobranym pakiecie.
+          </p>
         </section>
+
         <footer>✨ Niech te święta będą pełne niespodzianek</footer>
       </main>
     );
@@ -222,20 +306,33 @@ function App() {
       </header>
 
       <section className="hero">
-        <div className="eyebrow"><Snowflake size={15} /> ŚWIĄTECZNA EDYCJA</div>
+        <div className="eyebrow">
+          <Snowflake size={15} /> ŚWIĄTECZNA EDYCJA
+        </div>
         <h1>Listy do<br /><em>Mikołaja</em></h1>
-        <p>Podziel się pomysłami na prezent. Niech Mikołaj ma ułatwione zadanie!</p>
+        <p>
+          Podziel się pomysłami na prezent.
+          Niech Mikołaj ma ułatwione zadanie!
+        </p>
       </section>
 
       {error && <div className="alert">{error}</div>}
-      {notice && <div className="success"><CheckCircle2 size={17} />{notice}</div>}
+
+      {notice && (
+        <div className="success">
+          <CheckCircle2 size={17} />
+          {notice}
+        </div>
+      )}
 
       {page === 'home' && (
         <section className="panel">
           <h2>Masz już swój list?</h2>
           <p className="muted">Wpisz imię osoby, którą wylosowałeś.</p>
+
           <form onSubmit={findLetter}>
             <label>Imię z listy</label>
+
             <div className="searchBox">
               <Search size={19} />
               <input
@@ -246,8 +343,10 @@ function App() {
                 disabled={!!assigned}
               />
             </div>
+
             <button className="primary" disabled={loading || !!assigned}>
-              {loading ? 'Chwilka…' : 'Otwórz list'} <span>→</span>
+              {loading ? 'Chwilka…' : 'Otwórz list'}
+              <span>→</span>
             </button>
           </form>
 
@@ -258,6 +357,7 @@ function App() {
           )}
 
           <div className="rule"><span>albo</span></div>
+
           <button className="secondary" onClick={startCreate}>
             <PenLine size={17} /> Dodaj swój list
           </button>
@@ -266,26 +366,38 @@ function App() {
 
       {page === 'letter' && letter && (
         <section className="panel">
-          <button className="back" onClick={() => {
-            setPage('home');
-            setNotice('');
-            setError('');
-          }}>
+          <button
+            className="back"
+            onClick={() => {
+              setPage('home');
+              setNotice('');
+              setError('');
+            }}
+          >
             <ArrowLeft size={16} /> Strona główna
           </button>
 
           <div className="letterTop">
             <span className="tag">LIST DO MIKOŁAJA</span>
-            <h2>Drogi Mikołaju,<br /><em>to ja, {letter.name}!</em></h2>
+            <h2>
+              Drogi Mikołaju,<br />
+              <em>to ja, {letter.name}!</em>
+            </h2>
           </div>
 
           <p className="letterContent">{letter.content}</p>
 
-          {letter.links?.length > 0 && (
+          {letter.links.length > 0 && (
             <div className="wishLinks">
               <h3>Pomysły na prezenty</h3>
+
               {letter.links.map((link, i) => (
-                <a key={i} href={link} target="_blank" rel="noreferrer">
+                <a
+                  key={i}
+                  href={link}
+                  target="_blank"
+                  rel="noreferrer"
+                >
                   Pomysł {i + 1} <ExternalLink size={15} />
                 </a>
               ))}
@@ -304,14 +416,20 @@ function App() {
 
       {page === 'editor' && (
         <section className="panel">
-          <button className="back" onClick={() => setPage('home')}>
+          <button
+            className="back"
+            onClick={() => setPage('home')}
+          >
             <ArrowLeft size={16} /> Wróć
           </button>
 
-          <h2>{isEdit ? 'Edytuj swój list' : 'Napisz list do Mikołaja'}</h2>
+          <h2>
+            {isEdit ? 'Edytuj swój list' : 'Napisz list do Mikołaja'}
+          </h2>
 
           <form onSubmit={saveLetter}>
             <label>Twoje imię</label>
+
             <input
               className="textInput"
               value={formName}
@@ -323,6 +441,7 @@ function App() {
             />
 
             <label>Co chciał(a)byś dostać?</label>
+
             <textarea
               value={content}
               onChange={e => setContent(e.target.value)}
@@ -339,14 +458,21 @@ function App() {
                 <input
                   className="textInput"
                   value={link}
-                  onChange={e => setLinks(old => old.map((v, j) => i === j ? e.target.value : v))}
+                  onChange={e =>
+                    setLinks(old =>
+                      old.map((v, j) => i === j ? e.target.value : v)
+                    )
+                  }
                   placeholder="https://…"
                 />
+
                 {links.length > 1 && (
                   <button
                     type="button"
                     className="remove"
-                    onClick={() => setLinks(old => old.filter((_, j) => j !== i))}
+                    onClick={() =>
+                      setLinks(old => old.filter((_, j) => j !== i))
+                    }
                   >
                     ×
                   </button>
@@ -363,12 +489,15 @@ function App() {
             </button>
 
             <button className="primary" disabled={loading}>
-              {loading ? 'Zapisywanie…' : 'Zapisz list'} <span>→</span>
+              {loading ? 'Zapisywanie…' : 'Zapisz list'}
+              <span>→</span>
             </button>
           </form>
 
           <p className="muted small">
-            <LockKeyhole size={13} /> Autor może edytować list tylko z urządzenia, na którym go utworzył.
+            <LockKeyhole size={13} />
+            Autor może edytować list tylko z urządzenia,
+            na którym go utworzył.
           </p>
         </section>
       )}
