@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { createClient } from '@supabase/supabase-js';
@@ -62,6 +63,15 @@ function normalizeLetter(data) {
   };
 }
 
+function isMissingLetter(error) {
+  const message = (error?.message || '').toLocaleLowerCase('pl');
+
+  return (
+    message.includes('nie znaleziono listu') ||
+    message.includes('list not found')
+  );
+}
+
 function App() {
   const [page, setPage] = useState('home');
   const [name, setName] = useState('');
@@ -110,6 +120,15 @@ function App() {
     setLoading(false);
 
     if (err || !data) {
+      if (isMissingLetter(err) || (!err && !data)) {
+        localStorage.removeItem(ASSIGN_KEY);
+        setAssigned('');
+        setLetter(null);
+        setPage('home');
+        setError('');
+        return;
+      }
+
       setError(err?.message || 'Nie udało się pobrać listu.');
       return;
     }
@@ -182,12 +201,15 @@ function App() {
 
     const savedName = localStorage.getItem(OWN_KEY);
     const tokens = getTokens();
+
     const token = savedName
       ? tokens[savedName.toLocaleLowerCase('pl')]
       : null;
 
     if (!savedName || !token) {
-      setError('Nie znaleziono danych Twojego listu na tym urządzeniu.');
+      localStorage.removeItem(OWN_KEY);
+      setOwnName('');
+      setError('');
       return;
     }
 
@@ -206,6 +228,15 @@ function App() {
     setLoading(false);
 
     if (err || !data) {
+      if (isMissingLetter(err) || (!err && !data)) {
+        localStorage.removeItem(OWN_KEY);
+        setOwnName('');
+        setLetter(null);
+        setPage('home');
+        setError('');
+        return;
+      }
+
       setError(err?.message || 'Nie udało się otworzyć Twojego listu.');
       return;
     }
@@ -271,6 +302,7 @@ function App() {
 
       localStorage.setItem(EDIT_KEY, JSON.stringify(tokens));
       localStorage.setItem(OWN_KEY, safeData.name);
+
       setOwnName(safeData.name);
 
       setNotice(
