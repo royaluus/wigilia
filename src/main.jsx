@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { createClient } from '@supabase/supabase-js';
@@ -18,6 +17,7 @@ const supabase = url && anon && !url.includes('TWOJ-PROJEKT')
 const DEVICE_KEY = 'wigilia_device_id';
 const ASSIGN_KEY = 'wigilia_assigned_name';
 const EDIT_KEY = 'wigilia_edit_tokens';
+const OWN_KEY = 'wigilia_own_letter_name';
 
 function deviceId() {
   let id = localStorage.getItem(DEVICE_KEY);
@@ -65,13 +65,20 @@ function normalizeLetter(data) {
 function App() {
   const [page, setPage] = useState('home');
   const [name, setName] = useState('');
+
   const [assigned, setAssigned] = useState(
     localStorage.getItem(ASSIGN_KEY) || ''
   );
+
+  const [ownName, setOwnName] = useState(
+    localStorage.getItem(OWN_KEY) || ''
+  );
+
   const [letter, setLetter] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+
   const [formName, setFormName] = useState('');
   const [content, setContent] = useState('');
   const [links, setLinks] = useState(['']);
@@ -93,6 +100,7 @@ function App() {
 
     setLoading(true);
     setError('');
+    setNotice('');
 
     const { data, error: err } = await supabase.rpc('get_my_letter', {
       p_name: who,
@@ -130,6 +138,7 @@ function App() {
 
     setLoading(true);
     setError('');
+    setNotice('');
 
     const { data, error: err } = await supabase.rpc(
       'claim_and_get_letter',
@@ -168,11 +177,53 @@ function App() {
     setPage('editor');
   }
 
+  async function openOwnLetter() {
+    if (!supabase || loading) return;
+
+    const savedName = localStorage.getItem(OWN_KEY);
+    const tokens = getTokens();
+    const token = savedName
+      ? tokens[savedName.toLocaleLowerCase('pl')]
+      : null;
+
+    if (!savedName || !token) {
+      setError('Nie znaleziono danych Twojego listu na tym urządzeniu.');
+      return;
+    }
+
+    setLoading(true);
+    setError('');
+    setNotice('');
+
+    const { data, error: err } = await supabase.rpc(
+      'get_my_own_letter',
+      {
+        p_name: savedName,
+        p_edit_token: token
+      }
+    );
+
+    setLoading(false);
+
+    if (err || !data) {
+      setError(err?.message || 'Nie udało się otworzyć Twojego listu.');
+      return;
+    }
+
+    setLetter(normalizeLetter(data));
+    setPage('letter');
+  }
+
   async function saveLetter(e) {
     e.preventDefault();
 
     if (!supabase) {
       setError('Brak połączenia z bazą danych.');
+      return;
+    }
+
+    if (!formName.trim()) {
+      setError('Wpisz swoje imię.');
       return;
     }
 
@@ -214,25 +265,28 @@ function App() {
 
     if (!isEdit) {
       const tokens = getTokens();
+      const key = formName.trim().toLocaleLowerCase('pl');
 
-      tokens[formName.trim().toLocaleLowerCase('pl')] = token;
+      tokens[key] = token;
 
       localStorage.setItem(EDIT_KEY, JSON.stringify(tokens));
+      localStorage.setItem(OWN_KEY, safeData.name);
+      setOwnName(safeData.name);
 
       setNotice(
-        'Twój list został zapisany! Możesz go edytować z tego urządzenia.'
+        'Twój list został zapisany! Możesz go otwierać i edytować w dowolnym momencie z tego urządzenia.'
       );
     } else {
-      setNotice('Zmiany zapisane.');
+      setNotice('Zmiany w Twoim liście zostały zapisane.');
     }
 
-    // Ważne: tworzenie własnego listu NIE zmienia
-    // przypisania urządzenia do listu wylosowanej osoby.
     setLetter(safeData);
     setPage('letter');
   }
 
   function editOwnLetter() {
+    if (!letter) return;
+
     const token = getTokens()[
       letter.name.toLocaleLowerCase('pl')
     ];
@@ -327,29 +381,41 @@ function App() {
 
       {page === 'home' && (
         <section className="panel">
-          {assigned ? (
-            <>
-              <h2>Witaj ponownie!</h2>
-              <p className="muted">
-                Twoje urządzenie jest przypisane do listu osoby,
-                którą wylosowałeś.
-              </p>
+          <h2>Twoje listy</h2>
+          <p className="muted">
+            Możesz niezależnie otwierać swój list i list osoby, którą wylosowałeś.
+          </p>
 
-              <button
-                className="primary"
-                onClick={() => loadAssigned(assigned)}
-                disabled={loading}
-              >
-                <BookOpen size={17} />
-                {loading
-                  ? 'Otwieranie…'
-                  : `Wróć do listu ${assigned}`}
-                <span>→</span>
-              </button>
-            </>
-          ) : (
+          {ownName && (
+            <button
+              className="primary"
+              onClick={openOwnLetter}
+              disabled={loading}
+            >
+              <PenLine size={17} />
+              {loading ? 'Otwieranie…' : 'Otwórz i edytuj mój list'}
+              <span>→</span>
+            </button>
+          )}
+
+          {assigned && (
+            <button
+              className="secondary"
+              onClick={() => loadAssigned(assigned)}
+              disabled={loading}
+            >
+              <BookOpen size={17} />
+              {loading
+                ? 'Otwieranie…'
+                : `Sprawdź list osoby: ${assigned}`}
+              <span>→</span>
+            </button>
+          )}
+
+          {!assigned && (
             <>
-              <h2>Masz już swój list?</h2>
+              <div className="rule"><span>list wylosowanej osoby</span></div>
+
               <p className="muted">
                 Wpisz imię osoby, którą wylosowałeś.
               </p>
@@ -375,11 +441,15 @@ function App() {
             </>
           )}
 
-          <div className="rule"><span>albo</span></div>
+          {!ownName && (
+            <>
+              <div className="rule"><span>albo</span></div>
 
-          <button className="secondary" onClick={startCreate}>
-            <PenLine size={17} /> Stwórz swój list
-          </button>
+              <button className="secondary" onClick={startCreate}>
+                <PenLine size={17} /> Stwórz swój list
+              </button>
+            </>
+          )}
         </section>
       )}
 
