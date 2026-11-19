@@ -4,7 +4,8 @@ import { createRoot } from 'react-dom/client';
 import { createClient } from '@supabase/supabase-js';
 import {
   Gift, Snowflake, Search, PenLine, ArrowLeft,
-  LockKeyhole, ExternalLink, Plus, CheckCircle2, BookOpen
+  LockKeyhole, ExternalLink, Plus, CheckCircle2,
+  BookOpen, Sparkles, Star
 } from 'lucide-react';
 import './style.css';
 
@@ -69,6 +70,28 @@ function isMissingLetter(error) {
   return (
     message.includes('nie znaleziono listu') ||
     message.includes('list not found')
+  );
+}
+
+function Snowfall() {
+  return (
+    <div className="snowLayer" aria-hidden="true">
+      {Array.from({ length: 24 }, (_, i) => (
+        <span
+          key={i}
+          className="snowflake"
+          style={{
+            left: `${(i * 37) % 100}%`,
+            animationDelay: `${(i % 8) * -1.7}s`,
+            animationDuration: `${9 + (i % 7) * 2}s`,
+            opacity: 0.3 + (i % 5) * 0.12,
+            fontSize: `${8 + (i % 5) * 3}px`
+          }}
+        >
+          ❄
+        </span>
+      ))}
+    </div>
   );
 }
 
@@ -353,9 +376,12 @@ function App() {
   if (!configured) {
     return (
       <main className="shell">
+        <Snowfall />
+
         <header className="brand">
           <div className="brandIcon"><Gift /></div>
           <span>Wigilia <b>2026</b></span>
+          <span className="brandRight"><Snowflake size={18} /></span>
         </header>
 
         <section className="hero">
@@ -385,21 +411,29 @@ function App() {
 
   return (
     <main className="shell">
+      <Snowfall />
+
       <header className="brand">
         <div className="brandIcon"><Gift /></div>
         <span>Wigilia <b>2026</b></span>
-        <span className="brandRight"><Snowflake size={18} /></span>
+        <span className="brandRight"><Sparkles size={19} /></span>
       </header>
 
       <section className="hero">
+        <div className="heroDecor">✦</div>
         <div className="eyebrow">
           <Snowflake size={15} /> ŚWIĄTECZNA EDYCJA
         </div>
         <h1>Listy do<br /><em>Mikołaja</em></h1>
         <p>
-          Podziel się pomysłami na prezent.
-          Niech Mikołaj ma ułatwione zadanie!
+          Święta zaczynają się od marzeń.
+          Zapisz swoje pomysły na prezent i spraw, by Mikołaj miał łatwiejsze zadanie.
         </p>
+        <div className="heroBottom">
+          <span>✧</span>
+          <span>MAGIA ŚWIĄT 2026</span>
+          <span>✧</span>
+        </div>
       </section>
 
       {error && <div className="alert">{error}</div>}
@@ -412,87 +446,108 @@ function App() {
       )}
 
       {page === 'home' && (
-        <section className="panel">
-          <h2>Twoje listy</h2>
-          <p className="muted">
-            Możesz niezależnie otwierać swój list i list osoby, którą wylosowałeś.
-          </p>
+        <section className="homeSection">
+          <div className="sectionHeading">
+            <div>
+              <span className="sectionEyebrow">TWOJA ŚWIĄTECZNA PRZESTRZEŃ</span>
+              <h2>Witaj w świątecznej poczcie</h2>
+              <p>Wybierz list, który chcesz otworzyć.</p>
+            </div>
+            <div className="headingStar"><Star size={25} /></div>
+          </div>
 
-          {ownName && (
-            <button
-              className="primary"
-              onClick={openOwnLetter}
-              disabled={loading}
-            >
-              <PenLine size={17} />
-              {loading ? 'Otwieranie…' : 'Otwórz i edytuj mój list'}
-              <span>→</span>
-            </button>
-          )}
-
-          {assigned && (
-            <button
-              className="secondary"
-              onClick={() => loadAssigned(assigned)}
-              disabled={loading}
-            >
-              <BookOpen size={17} />
-              {loading
-                ? 'Otwieranie…'
-                : `Sprawdź list osoby: ${assigned}`}
-              <span>→</span>
-            </button>
-          )}
-
-          {!assigned && (
-            <>
-              <div className="rule"><span>list wylosowanej osoby</span></div>
-
-              <p className="muted">
-                Wpisz imię osoby, którą wylosowałeś.
-              </p>
-
-              <form onSubmit={findLetter}>
-                <label>Imię z listy</label>
-
-                <div className="searchBox">
-                  <Search size={19} />
-                  <input
-                    value={name}
-                    onChange={e => setName(e.target.value)}
-                    placeholder="Np. Alicja"
-                    required
-                  />
-                </div>
-
-                <button className="primary" disabled={loading}>
-                  {loading ? 'Chwilka…' : 'Otwórz list'}
+          <div className="homeCards">
+            {ownName ? (
+              <article className="homeCard ownCard">
+                <div className="cardIcon"><PenLine size={23} /></div>
+                <span className="cardLabel">TWÓJ LIST</span>
+                <h3>Twoje marzenia</h3>
+                <p>Wróć do swojego listu, sprawdź go i w razie potrzeby edytuj.</p>
+                <button
+                  className="cardButton"
+                  onClick={openOwnLetter}
+                  disabled={loading}
+                >
+                  {loading ? 'Otwieranie…' : 'Otwórz mój list'}
                   <span>→</span>
                 </button>
-              </form>
-            </>
-          )}
+              </article>
+            ) : (
+              <article className="homeCard ownCard">
+                <div className="cardIcon"><Gift size={23} /></div>
+                <span className="cardLabel">ZACZNIJ OD SIEBIE</span>
+                <h3>Napisz swój list</h3>
+                <p>Podziel się pomysłami na prezenty i ułatw komuś przygotowanie niespodzianki.</p>
+                <button className="cardButton" onClick={startCreate}>
+                  Stwórz swój list
+                  <span>→</span>
+                </button>
+              </article>
+            )}
 
-          {!ownName && (
-            <>
-              <div className="rule"><span>albo</span></div>
+            {assigned ? (
+              <article className="homeCard recipientCard">
+                <div className="cardIcon"><BookOpen size={23} /></div>
+                <span className="cardLabel">WYLOSOWANA OSOBA</span>
+                <h3>List od {assigned}</h3>
+                <p>Sprawdź pomysły prezentowe osoby, którą wylosowałeś.</p>
+                <button
+                  className="cardButton"
+                  onClick={() => loadAssigned(assigned)}
+                  disabled={loading}
+                >
+                  {loading ? 'Otwieranie…' : 'Otwórz list'}
+                  <span>→</span>
+                </button>
+              </article>
+            ) : (
+              <article className="homeCard recipientCard">
+                <div className="cardIcon"><Search size={23} /></div>
+                <span className="cardLabel">TAJEMNICZY ADRESAT</span>
+                <h3>Wylosowana osoba</h3>
+                <p>Wpisz imię osoby, którą wylosowałeś, aby zobaczyć jej list.</p>
 
-              <button className="secondary" onClick={startCreate}>
-                <PenLine size={17} /> Stwórz swój list
-              </button>
-            </>
-          )}
+                <form onSubmit={findLetter} className="recipientForm">
+                  <label>Imię z listy</label>
+                  <div className="searchBox">
+                    <Search size={18} />
+                    <input
+                      value={name}
+                      onChange={e => setName(e.target.value)}
+                      placeholder="Np. Alicja"
+                      required
+                    />
+                  </div>
+                  <button className="cardButton" disabled={loading}>
+                    {loading ? 'Chwilka…' : 'Otwórz list'}
+                    <span>→</span>
+                  </button>
+                </form>
+              </article>
+            )}
+          </div>
+
+          <div className="homeNote">
+            <LockKeyhole size={16} />
+            <span>Każdy list ma swojego autora. Możesz edytować tylko swój własny list.</span>
+          </div>
+
+          <div className="festiveQuote">
+            <span>✦</span>
+            <p>Najpiękniejsze prezenty zaczynają się od dobrego pomysłu.</p>
+            <span>✦</span>
+          </div>
         </section>
       )}
 
       {page === 'letter' && letter && (
-        <section className="panel">
+        <section className="panel letterPanel">
           <button className="back" onClick={goHome}>
             <ArrowLeft size={16} /> Strona główna
           </button>
 
           <div className="letterTop">
-            <span className="tag">LIST DO MIKOŁAJA</span>
+            <span className="tag">✦ LIST DO MIKOŁAJA ✦</span>
             <h2>
               Drogi Mikołaju,<br />
               <em>to ja, {letter.name}!</em>
@@ -504,7 +559,6 @@ function App() {
           {letter.links.length > 0 && (
             <div className="wishLinks">
               <h3>Pomysły na prezenty</h3>
-
               {letter.links.map((link, i) => (
                 <a
                   key={i}
@@ -529,18 +583,19 @@ function App() {
       )}
 
       {page === 'editor' && (
-        <section className="panel">
+        <section className="panel editorPanel">
           <button className="back" onClick={goHome}>
             <ArrowLeft size={16} /> Wróć
           </button>
 
-          <h2>
-            {isEdit ? 'Edytuj swój list' : 'Napisz list do Mikołaja'}
-          </h2>
+          <div className="editorHeading">
+            <span className="sectionEyebrow">ŚWIĄTECZNA POCZTA</span>
+            <h2>{isEdit ? 'Edytuj swój list' : 'Napisz list do Mikołaja'}</h2>
+            <p className="muted">Niech Mikołaj dowie się, o czym marzysz.</p>
+          </div>
 
           <form onSubmit={saveLetter}>
             <label>Twoje imię</label>
-
             <input
               className="textInput"
               value={formName}
@@ -552,7 +607,6 @@ function App() {
             />
 
             <label>Co chciał(a)byś dostać?</label>
-
             <textarea
               value={content}
               onChange={e => setContent(e.target.value)}
@@ -613,7 +667,11 @@ function App() {
         </section>
       )}
 
-      <footer>✨ Niech te święta będą pełne niespodzianek</footer>
+      <footer className="siteFooter">
+        <span>✦</span>
+        <p>Niech te święta będą pełne niespodzianek</p>
+        <span>✦</span>
+      </footer>
     </main>
   );
 }
