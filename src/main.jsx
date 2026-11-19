@@ -145,7 +145,7 @@ function App() {
       : await supabase.rpc('create_my_letter', {
           p_name: formName.trim(),
           p_content: content,
-          p_links: cleanLinks,
+          p_links: JSON.stringify(cleanLinks),
           p_edit_token: token,
           p_device_id: deviceId()
         });
