@@ -38,7 +38,6 @@ function getTokens() {
   }
 }
 
-// Zawsze zamieniamy linki na zwykłą tablicę.
 function normalizeLinks(value) {
   if (Array.isArray(value)) return value;
 
@@ -54,7 +53,6 @@ function normalizeLinks(value) {
   return [];
 }
 
-// Normalizacja danych pobranych z Supabase.
 function normalizeLetter(data) {
   if (!data) return null;
 
@@ -89,10 +87,7 @@ function App() {
   }, []);
 
   async function loadAssigned(who) {
-    if (!supabase) {
-      setError('Strona nie jest jeszcze podłączona do bazy danych.');
-      return;
-    }
+    if (!supabase || loading) return;
 
     setLoading(true);
     setError('');
@@ -110,32 +105,26 @@ function App() {
     }
 
     const safeData = normalizeLetter(data);
+
     setLetter(safeData);
     setPage('letter');
   }
 
   async function findLetter(e) {
     e.preventDefault();
+
+    // Jeśli urządzenie jest już przypisane,
+    // otwieramy ponownie ten sam list.
     if (assigned) {
-  await loadAssigned(assigned);
-  return;
-}
+      await loadAssigned(assigned);
+      return;
+    }
 
     const clean = name.trim();
     if (!clean) return;
 
     if (!supabase) {
       setError('Brak połączenia z bazą danych.');
-      return;
-    }
-
-    if (
-      assigned &&
-      assigned.toLocaleLowerCase('pl') !== clean.toLocaleLowerCase('pl')
-    ) {
-      setError(
-        `To urządzenie ma już przypisany list: ${assigned}. Możesz otworzyć tylko ten list.`
-      );
       return;
     }
 
@@ -268,6 +257,13 @@ function App() {
     setError('');
   }
 
+  function goHome() {
+    setPage('home');
+    setNotice('');
+    setError('');
+    setName('');
+  }
+
   if (!configured) {
     return (
       <main className="shell">
@@ -332,30 +328,43 @@ function App() {
       {page === 'home' && (
         <section className="panel">
           <h2>Masz już swój list?</h2>
-          <p className="muted">Wpisz imię osoby, którą wylosowałeś.</p>
+          <p className="muted">
+            {assigned
+              ? 'Możesz ponownie otworzyć swój przypisany list.'
+              : 'Wpisz imię osoby, którą wylosowałeś.'}
+          </p>
 
           <form onSubmit={findLetter}>
-            <label>Imię z listy</label>
+            {!assigned && (
+              <>
+                <label>Imię z listy</label>
 
-            <div className="searchBox">
-              <Search size={19} />
-              <input
-                value={name}
-                onChange={e => setName(e.target.value)}
-                placeholder="Np. Kuba"
-                required
-                disabled={!!assigned}
-              />
-            </div>
+                <div className="searchBox">
+                  <Search size={19} />
+                  <input
+                    value={name}
+                    onChange={e => setName(e.target.value)}
+                    placeholder="Np. Kuba"
+                    required
+                  />
+                </div>
+              </>
+            )}
+
+            {assigned && (
+              <p className="muted">
+                Przypisany list: <b>{assigned}</b>
+              </p>
+            )}
 
             <button className="primary" disabled={loading}>
-  {loading
-    ? 'Chwilka…'
-    : assigned
-      ? 'Otwórz mój list'
-      : 'Otwórz list'}
-  <span>→</span>
-</button>
+              {loading
+                ? 'Chwilka…'
+                : assigned
+                  ? 'Otwórz mój list'
+                  : 'Otwórz list'}
+              <span>→</span>
+            </button>
           </form>
 
           {assigned && (
@@ -374,14 +383,7 @@ function App() {
 
       {page === 'letter' && letter && (
         <section className="panel">
-          <button
-            className="back"
-            onClick={() => {
-              setPage('home');
-              setNotice('');
-              setError('');
-            }}
-          >
+          <button className="back" onClick={goHome}>
             <ArrowLeft size={16} /> Strona główna
           </button>
 
@@ -424,10 +426,7 @@ function App() {
 
       {page === 'editor' && (
         <section className="panel">
-          <button
-            className="back"
-            onClick={() => setPage('home')}
-          >
+          <button className="back" onClick={goHome}>
             <ArrowLeft size={16} /> Wróć
           </button>
 
