@@ -69,6 +69,7 @@ function isMissingLetter(error) {
 
   return (
     message.includes('nie znaleziono listu') ||
+    message.includes('nie znaleziono twojego listu') ||
     message.includes('list not found')
   );
 }
@@ -135,35 +136,39 @@ function App() {
     setError('');
     setNotice('');
 
-    const { data, error: err } = await supabase.rpc('get_my_letter', {
-      p_name: who,
-      p_device_id: deviceId()
-    });
+    try {
+      const { data, error: err } = await supabase.rpc('get_my_letter', {
+        p_name: who,
+        p_device_id: deviceId()
+      });
 
-    setLoading(false);
+      if (err || !data) {
+        if (isMissingLetter(err) || (!err && !data)) {
+          localStorage.removeItem(ASSIGN_KEY);
+          setAssigned('');
+          setLetter(null);
+          setPage('home');
+          setError('');
+          return;
+        }
 
-    if (err || !data) {
-      if (isMissingLetter(err) || (!err && !data)) {
-        localStorage.removeItem(ASSIGN_KEY);
-        setAssigned('');
-        setLetter(null);
-        setPage('home');
-        setError('');
+        setError(err?.message || 'Nie udało się pobrać listu.');
         return;
       }
 
-      setError(err?.message || 'Nie udało się pobrać listu.');
-      return;
+      setLetter(normalizeLetter(data));
+      setPage('letter');
+    } catch (err) {
+      setError(err?.message || 'Wystąpił błąd podczas pobierania listu.');
+    } finally {
+      setLoading(false);
     }
-
-    const safeData = normalizeLetter(data);
-
-    setLetter(safeData);
-    setPage('letter');
   }
 
   async function findLetter(e) {
     e.preventDefault();
+
+    if (loading) return;
 
     if (assigned) {
       await loadAssigned(assigned);
@@ -182,30 +187,34 @@ function App() {
     setError('');
     setNotice('');
 
-    const { data, error: err } = await supabase.rpc(
-      'claim_and_get_letter',
-      {
-        p_name: clean,
-        p_device_id: deviceId()
-      }
-    );
-
-    setLoading(false);
-
-    if (err || !data) {
-      setError(
-        err?.message ||
-        'Nie znaleziono listu albo jest już przypisany do innej osoby.'
+    try {
+      const { data, error: err } = await supabase.rpc(
+        'claim_and_get_letter',
+        {
+          p_name: clean,
+          p_device_id: deviceId()
+        }
       );
-      return;
+
+      if (err || !data) {
+        setError(
+          err?.message ||
+          'Nie znaleziono listu albo jest już przypisany do innej osoby.'
+        );
+        return;
+      }
+
+      const safeData = normalizeLetter(data);
+
+      localStorage.setItem(ASSIGN_KEY, safeData.name);
+      setAssigned(safeData.name);
+      setLetter(safeData);
+      setPage('letter');
+    } catch (err) {
+      setError(err?.message || 'Wystąpił błąd podczas wyszukiwania listu.');
+    } finally {
+      setLoading(false);
     }
-
-    const safeData = normalizeLetter(data);
-
-    localStorage.setItem(ASSIGN_KEY, safeData.name);
-    setAssigned(safeData.name);
-    setLetter(safeData);
-    setPage('letter');
   }
 
   function startCreate() {
@@ -240,36 +249,47 @@ function App() {
     setError('');
     setNotice('');
 
-    const { data, error: err } = await supabase.rpc(
-      'get_my_own_letter',
-      {
-        p_name: savedName,
-        p_edit_token: token
-      }
-    );
+    try {
+      const { data, error: err } = await supabase.rpc(
+        'get_my_own_letter',
+        {
+          p_name: savedName,
+          p_edit_token: token
+        }
+      );
 
-    setLoading(false);
+      if (err || !data) {
+        if (isMissingLetter(err) || (!err && !data)) {
+          localStorage.removeItem(OWN_KEY);
 
-    if (err || !data) {
-      if (isMissingLetter(err) || (!err && !data)) {
-        localStorage.removeItem(OWN_KEY);
-        setOwnName('');
-        setLetter(null);
-        setPage('home');
-        setError('');
+          const updatedTokens = getTokens();
+          delete updatedTokens[savedName.toLocaleLowerCase('pl')];
+          localStorage.setItem(EDIT_KEY, JSON.stringify(updatedTokens));
+
+          setOwnName('');
+          setLetter(null);
+          setPage('home');
+          setError('');
+          return;
+        }
+
+        setError(err?.message || 'Nie udało się otworzyć Twojego listu.');
         return;
       }
 
-      setError(err?.message || 'Nie udało się otworzyć Twojego listu.');
-      return;
+      setLetter(normalizeLetter(data));
+      setPage('letter');
+    } catch (err) {
+      setError(err?.message || 'Wystąpił błąd podczas otwierania listu.');
+    } finally {
+      setLoading(false);
     }
-
-    setLetter(normalizeLetter(data));
-    setPage('letter');
   }
 
   async function saveLetter(e) {
     e.preventDefault();
+
+    if (loading) return;
 
     if (!supabase) {
       setError('Brak połączenia z bazą danych.');
@@ -278,6 +298,11 @@ function App() {
 
     if (!formName.trim()) {
       setError('Wpisz swoje imię.');
+      return;
+    }
+
+    if (!content.trim()) {
+      setError('Napisz coś w swoim liście.');
       return;
     }
 
@@ -293,54 +318,60 @@ function App() {
       ? editToken
       : crypto.randomUUID() + crypto.randomUUID();
 
-    const { data, error: err } = isEdit
-      ? await supabase.rpc('update_my_letter', {
-          p_name: formName.trim(),
-          p_edit_token: token,
-          p_content: content,
-          p_links: cleanLinks
-        })
-      : await supabase.rpc('create_my_letter', {
-          p_name: formName.trim(),
-          p_content: content,
-          p_links: cleanLinks,
-          p_edit_token: token,
-          p_device_id: deviceId()
-        });
+    try {
+      const result = isEdit
+        ? await supabase.rpc('update_my_letter', {
+            p_name: formName.trim(),
+            p_edit_token: token,
+            p_content: content,
+            p_links: JSON.stringify(cleanLinks)
+          })
+        : await supabase.rpc('create_my_letter', {
+            p_name: formName.trim(),
+            p_content: content,
+            p_links: JSON.stringify(cleanLinks),
+            p_edit_token: token,
+            p_device_id: deviceId()
+          });
 
-    setLoading(false);
+      const { data, error: err } = result;
 
-    if (err || !data) {
-      setError(err?.message || 'Nie udało się zapisać listu.');
-      return;
+      if (err || !data) {
+        setError(err?.message || 'Nie udało się zapisać listu.');
+        return;
+      }
+
+      const safeData = normalizeLetter(data);
+
+      if (!isEdit) {
+        const tokens = getTokens();
+        const key = formName.trim().toLocaleLowerCase('pl');
+
+        tokens[key] = token;
+
+        localStorage.setItem(EDIT_KEY, JSON.stringify(tokens));
+        localStorage.setItem(OWN_KEY, safeData.name);
+
+        setOwnName(safeData.name);
+
+        setNotice(
+          'Twój list został zapisany! Możesz go otwierać i edytować z tego urządzenia.'
+        );
+      } else {
+        setNotice('Zmiany w Twoim liście zostały zapisane.');
+      }
+
+      setLetter(safeData);
+      setPage('letter');
+    } catch (err) {
+      setError(err?.message || 'Wystąpił błąd podczas zapisywania listu.');
+    } finally {
+      setLoading(false);
     }
-
-    const safeData = normalizeLetter(data);
-
-    if (!isEdit) {
-      const tokens = getTokens();
-      const key = formName.trim().toLocaleLowerCase('pl');
-
-      tokens[key] = token;
-
-      localStorage.setItem(EDIT_KEY, JSON.stringify(tokens));
-      localStorage.setItem(OWN_KEY, safeData.name);
-
-      setOwnName(safeData.name);
-
-      setNotice(
-        'Twój list został zapisany! Możesz go otwierać i edytować w dowolnym momencie z tego urządzenia.'
-      );
-    } else {
-      setNotice('Zmiany w Twoim liście zostały zapisane.');
-    }
-
-    setLetter(safeData);
-    setPage('letter');
   }
 
   function editOwnLetter() {
-    if (!letter) return;
+    if (!letter || loading) return;
 
     const token = getTokens()[
       letter.name.toLocaleLowerCase('pl')
