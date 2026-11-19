@@ -81,8 +81,20 @@ function App() {
     const cleanLinks = links.map(x => x.trim()).filter(Boolean);
     const token = isEdit ? editToken : crypto.randomUUID() + crypto.randomUUID();
     const { data, error: err } = isEdit
-      ? await supabase.rpc('update_my_letter', { p_name: formName.trim(), p_edit_token: token, p_content: content, p_links: cleanLinks })
-      : await supabase.rpc('create_my_letter', { p_name: formName.trim(), p_content: content, p_links: cleanLinks, p_edit_token: token });
+  ? await supabase.rpc('update_my_letter', {
+      p_name: formName.trim(),
+      p_edit_token: token,
+      p_content: content,
+      p_links: cleanLinks
+    })
+  : await supabase.rpc('create_my_letter', {
+      p_name: formName.trim(),
+      p_content: content,
+      p_links: cleanLinks,
+      p_edit_token: token,
+      p_device_id: deviceId()
+    });
+    
     setLoading(false);
     if (err || !data) { setError(err?.message || 'Nie udało się zapisać listu.'); return; }
     if (!isEdit) {
