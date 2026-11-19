@@ -4,7 +4,7 @@ import { createRoot } from 'react-dom/client';
 import { createClient } from '@supabase/supabase-js';
 import {
   Gift, Snowflake, Search, PenLine, ArrowLeft,
-  LockKeyhole, ExternalLink, Plus, CheckCircle2
+  LockKeyhole, ExternalLink, Plus, CheckCircle2, BookOpen
 } from 'lucide-react';
 import './style.css';
 
@@ -81,8 +81,10 @@ function App() {
   const configured = !!supabase;
 
   useEffect(() => {
-    if (assigned) {
-      loadAssigned(assigned);
+    const savedName = localStorage.getItem(ASSIGN_KEY);
+
+    if (savedName) {
+      loadAssigned(savedName);
     }
   }, []);
 
@@ -113,8 +115,6 @@ function App() {
   async function findLetter(e) {
     e.preventDefault();
 
-    // Jeśli urządzenie jest już przypisane,
-    // otwieramy ponownie ten sam list.
     if (assigned) {
       await loadAssigned(assigned);
       return;
@@ -218,17 +218,16 @@ function App() {
       tokens[formName.trim().toLocaleLowerCase('pl')] = token;
 
       localStorage.setItem(EDIT_KEY, JSON.stringify(tokens));
-      localStorage.setItem(ASSIGN_KEY, safeData.name);
-
-      setAssigned(safeData.name);
 
       setNotice(
-        'List zapisany! Zachowaj ten telefon/przeglądarkę — zapisaliśmy na nim możliwość edycji.'
+        'Twój list został zapisany! Możesz go edytować z tego urządzenia.'
       );
     } else {
       setNotice('Zmiany zapisane.');
     }
 
+    // Ważne: tworzenie własnego listu NIE zmienia
+    // przypisania urządzenia do listu wylosowanej osoby.
     setLetter(safeData);
     setPage('letter');
   }
@@ -255,6 +254,7 @@ function App() {
     setIsEdit(true);
     setPage('editor');
     setError('');
+    setNotice('');
   }
 
   function goHome() {
@@ -327,16 +327,34 @@ function App() {
 
       {page === 'home' && (
         <section className="panel">
-          <h2>Masz już swój list?</h2>
-          <p className="muted">
-            {assigned
-              ? 'Możesz ponownie otworzyć swój przypisany list.'
-              : 'Wpisz imię osoby, którą wylosowałeś.'}
-          </p>
+          {assigned ? (
+            <>
+              <h2>Witaj ponownie!</h2>
+              <p className="muted">
+                Twoje urządzenie jest przypisane do listu osoby,
+                którą wylosowałeś.
+              </p>
 
-          <form onSubmit={findLetter}>
-            {!assigned && (
-              <>
+              <button
+                className="primary"
+                onClick={() => loadAssigned(assigned)}
+                disabled={loading}
+              >
+                <BookOpen size={17} />
+                {loading
+                  ? 'Otwieranie…'
+                  : `Wróć do listu ${assigned}`}
+                <span>→</span>
+              </button>
+            </>
+          ) : (
+            <>
+              <h2>Masz już swój list?</h2>
+              <p className="muted">
+                Wpisz imię osoby, którą wylosowałeś.
+              </p>
+
+              <form onSubmit={findLetter}>
                 <label>Imię z listy</label>
 
                 <div className="searchBox">
@@ -344,39 +362,23 @@ function App() {
                   <input
                     value={name}
                     onChange={e => setName(e.target.value)}
-                    placeholder="Np. Kuba"
+                    placeholder="Np. Alicja"
                     required
                   />
                 </div>
-              </>
-            )}
 
-            {assigned && (
-              <p className="muted">
-                Przypisany list: <b>{assigned}</b>
-              </p>
-            )}
-
-            <button className="primary" disabled={loading}>
-              {loading
-                ? 'Chwilka…'
-                : assigned
-                  ? 'Otwórz mój list'
-                  : 'Otwórz list'}
-              <span>→</span>
-            </button>
-          </form>
-
-          {assigned && (
-            <p className="muted small">
-              To urządzenie jest przypisane do listu: <b>{assigned}</b>.
-            </p>
+                <button className="primary" disabled={loading}>
+                  {loading ? 'Chwilka…' : 'Otwórz list'}
+                  <span>→</span>
+                </button>
+              </form>
+            </>
           )}
 
           <div className="rule"><span>albo</span></div>
 
           <button className="secondary" onClick={startCreate}>
-            <PenLine size={17} /> Dodaj swój list
+            <PenLine size={17} /> Stwórz swój list
           </button>
         </section>
       )}
