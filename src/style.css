@@ -31,7 +31,9 @@ body {
     var(--cream);
 }
 
-button, input, textarea {
+button,
+input,
+textarea {
   -webkit-tap-highlight-color: transparent;
 }
 
@@ -40,11 +42,12 @@ button {
 }
 
 .shell {
-  max-width: 600px;
+  max-width: 640px;
   margin: 0 auto;
   padding: 26px 20px 35px;
   min-height: 100vh;
   position: relative;
+  isolation: isolate;
 }
 
 .brand {
@@ -79,13 +82,17 @@ button {
 }
 
 .hero {
+  min-height: 285px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
   background:
     radial-gradient(circle at 90% 15%, #ffffff12 0 2px, transparent 3px),
     radial-gradient(circle at 78% 75%, #ffffff10 0 3px, transparent 4px),
     linear-gradient(140deg, #1d4c3d, #102f26);
   color: #fff;
   border-radius: 27px;
-  padding: 39px 29px 36px;
+  padding: 39px 29px 30px;
   margin: 27px 0 22px;
   position: relative;
   overflow: hidden;
@@ -104,15 +111,13 @@ button {
   transform: rotate(15deg);
 }
 
-.hero:before {
-  content: '✦  ·  ✧';
+.heroDecor {
   position: absolute;
   right: 27px;
-  bottom: 22px;
+  top: 28px;
   color: #dfc78c;
-  font-size: 19px;
-  letter-spacing: 10px;
-  opacity: .8;
+  font-size: 35px;
+  animation: twinkle 3s ease-in-out infinite;
 }
 
 .eyebrow {
@@ -147,6 +152,22 @@ h1 em,
   font-size: 14px;
   max-width: 340px;
   margin: 0;
+}
+
+.heroBottom {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 25px;
+  color: #dfc78c;
+  font-size: 9px;
+  letter-spacing: .2em;
+  font-weight: 700;
+}
+
+.heroBottom span:first-child,
+.heroBottom span:last-child {
+  font-size: 17px;
 }
 
 .panel {
@@ -322,14 +343,6 @@ textarea {
   flex: 1;
 }
 
-footer {
-  text-align: center;
-  color: #92998f;
-  font-size: 11px;
-  margin: 28px 0 0;
-  letter-spacing: .03em;
-}
-
 .alert,
 .success {
   padding: 13px 15px;
@@ -472,6 +485,31 @@ footer {
   color: #a68b50;
 }
 
+.snowLayer {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: -1;
+}
+
+.snowflake {
+  position: absolute;
+  top: -30px;
+  color: #9eafa0;
+  animation: snowFall linear infinite;
+  user-select: none;
+}
+
+@keyframes snowFall {
+  0% {
+    transform: translate3d(0, -30px, 0) rotate(0deg);
+  }
+  100% {
+    transform: translate3d(35px, 110vh, 0) rotate(360deg);
+  }
+}
+
 @keyframes appear {
   from {
     opacity: 0;
@@ -483,14 +521,293 @@ footer {
   }
 }
 
-@media (max-width: 420px) {
+@keyframes twinkle {
+  0%, 100% {
+    opacity: .5;
+    transform: scale(.9) rotate(0deg);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.15) rotate(15deg);
+  }
+}
+
+.homeSection {
+  animation: appear .55s ease both;
+}
+
+.sectionHeading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 30px 3px 20px;
+}
+
+.sectionEyebrow {
+  display: block;
+  color: #a68b50;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .17em;
+  margin-bottom: 9px;
+}
+
+.sectionHeading h2,
+.editorHeading h2 {
+  font-family: 'Playfair Display', serif;
+  font-size: 27px;
+  line-height: 1.2;
+  margin: 0 0 7px;
+  color: #193b31;
+}
+
+.sectionHeading p {
+  color: #7b837a;
+  font-size: 13px;
+  margin: 0;
+  line-height: 1.5;
+}
+
+.headingStar {
+  width: 47px;
+  height: 47px;
+  min-width: 47px;
+  display: grid;
+  place-items: center;
+  color: #b4934d;
+  background: #eee8d8;
+  border-radius: 16px;
+}
+
+.homeCards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.homeCard {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 21px 18px;
+  border-radius: 21px;
+  border: 1px solid #e8e3d6;
+  background: rgba(255,255,255,.94);
+  box-shadow: 0 12px 30px #1e2b250b;
+  transition: transform .25s ease, box-shadow .25s ease;
+}
+
+.homeCard:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 17px 35px #1e2b2515;
+}
+
+.ownCard {
+  border-top: 3px solid #1b4b3b;
+}
+
+.recipientCard {
+  border-top: 3px solid #b4934d;
+}
+
+.cardIcon {
+  width: 45px;
+  height: 45px;
+  display: grid;
+  place-items: center;
+  border-radius: 15px;
+  margin-bottom: 17px;
+}
+
+.ownCard .cardIcon {
+  color: #1c503d;
+  background: #e9f0e8;
+}
+
+.recipientCard .cardIcon {
+  color: #a48645;
+  background: #f4eedf;
+}
+
+.cardLabel {
+  color: #9a8a67;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .13em;
+  margin-bottom: 9px;
+}
+
+.homeCard h3 {
+  color: #193b31;
+  font-family: 'Playfair Display', serif;
+  font-size: 21px;
+  line-height: 1.2;
+  margin: 0 0 10px;
+}
+
+.homeCard p {
+  color: #7b837a;
+  font-size: 12px;
+  line-height: 1.6;
+  margin: 0 0 19px;
+}
+
+.cardButton {
+  width: 100%;
+  margin-top: auto;
+  min-height: 45px;
+  border: 0;
+  border-radius: 11px;
+  background: #173d32;
+  color: #fff;
+  padding: 11px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 5px;
+  font: 600 12px 'DM Sans';
+  cursor: pointer;
+}
+
+.cardButton:hover {
+  background: #285b46;
+  transform: translateY(-2px);
+}
+
+.cardButton:disabled {
+  opacity: .55;
+  cursor: wait;
+  transform: none;
+}
+
+.recipientCard .cardButton {
+  background: #a68b50;
+}
+
+.recipientCard .cardButton:hover {
+  background: #8d713c;
+}
+
+.cardButton span {
+  font-size: 19px;
+}
+
+.recipientForm {
+  margin-top: auto;
+}
+
+.recipientForm label {
+  margin-top: 0;
+}
+
+.recipientForm .searchBox {
+  height: 45px;
+  padding: 0 10px;
+  gap: 7px;
+}
+
+.recipientForm .searchBox svg {
+  width: 16px;
+  min-width: 16px;
+}
+
+.recipientForm .searchBox input {
+  font-size: 12px;
+}
+
+.recipientForm .cardButton {
+  margin-top: 12px;
+}
+
+.homeNote {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 15px 16px;
+  margin-top: 17px;
+  border: 1px solid #e8e3d6;
+  border-radius: 14px;
+  background: #f8f7f1;
+  color: #758075;
+  font-size: 11px;
+  line-height: 1.55;
+}
+
+.homeNote svg {
+  flex-shrink: 0;
+  color: #a68b50;
+}
+
+.festiveQuote {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin: 27px 0 5px;
+  text-align: center;
+  color: #a68b50;
+}
+
+.festiveQuote span {
+  font-size: 17px;
+}
+
+.festiveQuote p {
+  font-family: 'Playfair Display', serif;
+  font-style: italic;
+  font-size: 14px;
+  line-height: 1.5;
+  margin: 0;
+  color: #7a7969;
+}
+
+.editorHeading {
+  margin-bottom: 20px;
+}
+
+.editorHeading .muted {
+  margin-bottom: 0;
+}
+
+.letterPanel,
+.editorPanel {
+  animation: appear .4s ease both;
+}
+
+.siteFooter {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  margin-top: 30px;
+  color: #a68b50;
+}
+
+.siteFooter p {
+  font-size: 11px;
+  color: #92998f;
+  letter-spacing: .02em;
+  text-align: center;
+}
+
+.siteFooter span {
+  font-size: 13px;
+}
+
+@media (max-width: 480px) {
   .shell {
     padding: 17px 14px 25px;
   }
 
   .hero {
+    min-height: 270px;
     padding: 31px 23px;
     border-radius: 23px;
+  }
+
+  .hero h1 {
+    font-size: 54px;
   }
 
   .panel {
@@ -498,8 +815,29 @@ footer {
     border-radius: 19px;
   }
 
-  .hero h1 {
-    font-size: 54px;
+  .homeCards {
+    grid-template-columns: 1fr;
+  }
+
+  .homeCard {
+    padding: 21px;
+  }
+
+  .homeCard h3 {
+    font-size: 23px;
+  }
+
+  .homeCard p {
+    font-size: 13px;
+  }
+
+  .cardButton {
+    min-height: 48px;
+    font-size: 13px;
+  }
+
+  .sectionHeading h2 {
+    font-size: 24px;
   }
 
   .letterTop h2 {
@@ -515,23 +853,8 @@ footer {
     transition-duration: .01ms !important;
     scroll-behavior: auto !important;
   }
-  .cardButton {
-    min-height: 48px;
-    font-size: 13px;
-  }
 
-  .sectionHeading h2 {
-    font-size: 24px;
-  }
-
-  .hero {
-    min-height: 270px;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
   .snowflake {
     display: none;
   }
-}
 }
