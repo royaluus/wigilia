@@ -116,6 +116,10 @@ function App() {
 
   async function findLetter(e) {
     e.preventDefault();
+    if (assigned) {
+  await loadAssigned(assigned);
+  return;
+}
 
     const clean = name.trim();
     if (!clean) return;
@@ -344,10 +348,14 @@ function App() {
               />
             </div>
 
-            <button className="primary" disabled={loading || !!assigned}>
-              {loading ? 'Chwilka…' : 'Otwórz list'}
-              <span>→</span>
-            </button>
+            <button className="primary" disabled={loading}>
+  {loading
+    ? 'Chwilka…'
+    : assigned
+      ? 'Otwórz mój list'
+      : 'Otwórz list'}
+  <span>→</span>
+</button>
           </form>
 
           {assigned && (
